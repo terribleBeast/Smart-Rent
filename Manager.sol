@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./Property.sol";
 import "./Agreement.sol";
 import "./PropertyNFT.sol";
+// import "/project/interfaces/IAgreement.sol";
 
 contract Manager {
     Property public implementationProperty;
@@ -14,7 +15,13 @@ contract Manager {
     mapping(address => address[]) public propertyAgreements;
     address[] public propertiesList;
 
-    constructor() {
+    constructor(
+
+    ) {
+
+        // this realisation is used hardcode inizilizing of implementation contracts, because
+        // But you can make it so that you can pass implementations as constructor arguments.
+        
         implementationProperty = new Property();
         implementationAgreement = new Agreement();
         propertyNFT = new PropertyNFT(address(this));
@@ -53,9 +60,21 @@ contract Manager {
         address _landlord = Property(_property).getOwner();
         
         require(msg.sender != _landlord, "Landlord cannot rent own property");
+
         emit message(Strings.toString(msg.value));
+
+        uint256 requiredAmount = (_daysCount * _priceForDay) + _deposit;
+
         address agreement = Clones.clone(address(implementationAgreement));
-        Agreement(agreement).initialize{value: msg.value}(
+        
+        
+        if (msg.value > requiredAmount) 
+        {
+            payable(msg.sender).transfer(msg.value - requiredAmount); 
+            emit Agreement.ChangeReturned(agreement, msg.value - requiredAmount);
+        } 
+
+        Agreement(agreement).initialize{value: requiredAmount}(
             _landlord,
             msg.sender,
             _property,
@@ -65,11 +84,13 @@ contract Manager {
         );
 
         propertyAgreements[_property].push(agreement);
+
         emit AgreementCreated(_property, agreement);
+        
         return agreement;
     }
 
-    function isPropertyExist(address _property) public view returns (bool) {
+    function isPropertyExist(address _property) private view returns (bool) {
         for (uint i = 0; i < propertiesList.length; i++) {
             if (propertiesList[i] == _property) {
                 return true;
@@ -78,8 +99,8 @@ contract Manager {
         return false;
     }
 
-    function getBalance(address _property) public view returns (uint256) {
-        return _property.balance;
+    function getBalance(address _address) public view returns (uint256) {
+        return _address.balance;
     }
     event message(string mess);
     event PropertyCreated(address indexed owner, address property);

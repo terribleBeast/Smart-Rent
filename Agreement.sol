@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./PropertyNFT.sol";
+import "project/interfaces/IAgreement.sol";
 
-contract Agreement {
+
+contract Agreement is IAgreement{
     address public landlord;
     address public tenant;
 
@@ -21,22 +22,28 @@ contract Agreement {
     bool public initialized;
 
     // Done
-   function initialize(
+    function initialize (
         address _landlord,
         address _tenant,
         address _property,
         uint256 _daysCount,
         uint256 _priceForDay,
         uint256 _deposit
-    ) external payable {
-        require(!initialized, "Already initialized");
+    ) external payable override {
+        // emit message(Strings.toString(msg.value));
+        // emit message(Strings.toString(_daysCount * _priceForDay + _deposit));
 
-        emit message(Strings.toString(msg.value));
-        emit message(Strings.toString(_daysCount * _priceForDay + _deposit));
-    
-        require(msg.value == _daysCount * _priceForDay + _deposit, 
-        "Incorrect payment amount");
+        require(!initialized, "Already initialized");
         require(_daysCount > 0, "Rent period must be positive");
+        uint256 requiredAmount = _daysCount * _priceForDay + _deposit;
+
+        require(msg.value >= requiredAmount, "Incorrect payment amount");
+
+        if (msg.value > requiredAmount) {
+            uint256 change = msg.value - requiredAmount;
+            payable(msg.sender).transfer(change);
+            emit ChangeReturned(msg.sender, change);
+        }
 
         initialized = true;
         landlord = _landlord;
@@ -48,30 +55,43 @@ contract Agreement {
         deposit = _deposit;
         status = Status.Active;
 
-        emit AgreementInitialized(landlord, tenant, property, startRent, endRent);
-        // emit PaymentReceived(msg.value);
+        emit AgreementInitialized(
+            landlord,
+            tenant,
+            property,
+            startRent,
+            endRent
+        );
+        
+        emit PaymentAccured(address(this), requiredAmount);
     }
+
     // Done
-    function extendedRent(uint256 _daysCount)
-        public 
+    function extendRent(uint256 _additionalDays)
+        public
+        payable 
+        override
         involved
         timeWasUp
         isActive
     {
-        require(_daysCount > 0, "_daysCount cannot be less than zero");
+        require(_additionalDays > 0, "_daysCount cannot be less than zero");
 
-        endRent = block.timestamp + _daysCount * 24 hours;
-        // payable(tenant).transfer(_daysCount * priceForDay);
+        uint256 requiredAmount =  _additionalDays * priceForDay;
+        
+        if (msg.value > requiredAmount) 
+        {
+            uint256 change = msg.value - requiredAmount;
+            payable(msg.sender).transfer(change);
+            emit ChangeReturned(msg.sender, change);
+        }
 
-        emit PaymentOfRent(
-            address(this),
-            tenant,
-            _daysCount * priceForDay + deposit
-        );
-        emit ExtendedRent(tenant, property, endRent);
+        endRent = block.timestamp + _additionalDays * 1 days;
+
+        emit ExtendRent(tenant, property, endRent);
     }
 
-    function cancelRental() public involved timeWasUp isActive {
+    function cancelRental() public override involved timeWasUp isActive {
         status = Status.Cancelled;
 
         if (msg.sender == landlord) {
@@ -88,7 +108,7 @@ contract Agreement {
         );
     }
 
-    function getRentPayment() public view involved  {
+    function getRentPayment() public view involved {
         require(msg.sender == landlord, "Only landlords can get rent payment");
 
         // payable(landlord).transfer(
@@ -117,21 +137,9 @@ contract Agreement {
         }
     }
 
-    //     function reportIssue()
-    //     involved()
-    //    {
-
-    //     }
-
-    //     function claimDeposit(params)
-    //     involved()
-    //     {
-    //         require(
-    //             status != Status.Completed && status._status != Status.Disputed
-    //         );
-    //         require(!approvalLandlord && !approvalTenant , "This action requires approval.");
-
-    //}
+    function returnDeposit() external override {
+        // require(!approvalLandlord && !approvalTenant , "This action requires approval.");
+    }
 
     function getStatus() public view returns (Status) {
         return status;
@@ -149,12 +157,14 @@ contract Agreement {
         _;
     }
 
+    // something may to update
     modifier timeWasUp() {
         if (block.timestamp >= endRent) {
             status = Status.Finished;
         }
         _;
     }
+
     modifier isActive() {
         require(status == Status.Active, "The agreemet is not active.");
         _;
@@ -174,15 +184,11 @@ contract Agreement {
         string _whoCanselled
     );
 
-    event PaymentOfRent(address _agreement, address _tenant, uint256 _deposit);
     event message(string mess);
 
-    event ExtendedRent(address _tenant, address _property, uint256 _endRent);
+    event PaymentAccured(address _agreement, uint256 _sum);
+    event PaymentOfRent(address _agreement, address _tenant, uint256 _deposit);
+    event ExtendRent(address _tenant, address _property, uint256 _endRent);
+    event ChangeReturned(address indexed recipient, uint256 amount);
 
-    enum Status {
-        Active,
-        Cancelled,
-        Finished,
-        Completed
-    }
 }
