@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./PropertyNFT.sol";
+
 contract Agreement {
     address public landlord;
     address public tenant;
@@ -28,8 +30,12 @@ contract Agreement {
         uint256 _deposit
     ) external payable {
         require(!initialized, "Already initialized");
-        // require(msg.sender == _tenant, "Only tenant can initialize");
-        // require(msg.value == _daysCount * _priceForDay + _deposit, "Incorrect payment amount");
+
+        emit message(Strings.toString(msg.value));
+        emit message(Strings.toString(_daysCount * _priceForDay + _deposit));
+    
+        require(msg.value == _daysCount * _priceForDay + _deposit, 
+        "Incorrect payment amount");
         require(_daysCount > 0, "Rent period must be positive");
 
         initialized = true;
@@ -169,6 +175,7 @@ contract Agreement {
     );
 
     event PaymentOfRent(address _agreement, address _tenant, uint256 _deposit);
+    event message(string mess);
 
     event ExtendedRent(address _tenant, address _property, uint256 _endRent);
 

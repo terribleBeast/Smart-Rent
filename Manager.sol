@@ -53,7 +53,7 @@ contract Manager {
         address _landlord = Property(_property).getOwner();
         
         require(msg.sender != _landlord, "Landlord cannot rent own property");
-        
+        emit message(Strings.toString(msg.value));
         address agreement = Clones.clone(address(implementationAgreement));
         Agreement(agreement).initialize{value: msg.value}(
             _landlord,
@@ -80,9 +80,8 @@ contract Manager {
 
     function getBalance(address _property) public view returns (uint256) {
         return _property.balance;
-
     }
-
+    event message(string mess);
     event PropertyCreated(address indexed owner, address property);
     event AgreementCreated(address indexed property, address agreement);
 }
