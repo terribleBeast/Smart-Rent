@@ -34,7 +34,7 @@ contract Property {
         return IPropertyNFT(nftAddress).ownerOf(tokenId);
     }
 
-    function getPriceForDay() public view returns (uint256) {
+    function getPricePerDay() public view returns (uint256) {
         return pricePerDay;
     }
 
@@ -46,7 +46,8 @@ contract Property {
         uint256 _newPricePerDay,
         uint256 _newDeposit,
         string memory _newMetadata
-    ) external {
+    ) external 
+    {
         require(msg.sender == getOwner(), "Only owner can update");
         pricePerDay = _newPricePerDay;
         deposit = _newDeposit;

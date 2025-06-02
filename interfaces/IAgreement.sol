@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 interface IAgreement {
-    enum Status { 
+    enum StatusRent { 
         Active, 
         Cancelled, // The rental is cancelled. It should be treated as a controversial situation.
         Finished, // The rental period has expired, but the deposit has not been withdrawn
@@ -20,11 +20,13 @@ interface IAgreement {
     ) external payable;
 
     function extendRent(uint256 _additionalDays) external payable;
-    function cancelRental() external;
+    function cancelByLandlord() external;
+    function cancelByTenant() external;
     // function withdrawRent() external;
     function returnDeposit() external;
-    function getStatus() external view returns (Status);
+    function getRentStatus() external view returns (StatusRent);
     function getBalance() external view returns (uint256);
+
 
     event RentExtended(address indexed tenant, uint256 newEndDate);
     event AgreementCancelled(address indexed by, string reason);

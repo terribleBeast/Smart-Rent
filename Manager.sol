@@ -45,6 +45,7 @@ contract Manager {
 
         propertiesList.push(property);
         emit PropertyCreated(msg.sender, property);
+        
         return property;
     }
 
@@ -55,7 +56,7 @@ contract Manager {
         require(_property != address(0), "Invalid property address");
         require(isPropertyExist(_property), "Property does not exist");
         
-        uint256 _priceForDay = Property(_property).getPriceForDay();
+        uint256 _pricePerDay = Property(_property).getPricePerDay();
         uint256 _deposit = Property(_property).getDeposit();
         address _landlord = Property(_property).getOwner();
         
@@ -63,7 +64,7 @@ contract Manager {
 
         emit message(Strings.toString(msg.value));
 
-        uint256 requiredAmount = (_daysCount * _priceForDay) + _deposit;
+        uint256 requiredAmount = (_daysCount * _pricePerDay) + _deposit;
 
         address agreement = Clones.clone(address(implementationAgreement));
         
@@ -72,14 +73,14 @@ contract Manager {
         {
             payable(msg.sender).transfer(msg.value - requiredAmount); 
             emit Agreement.ChangeReturned(agreement, msg.value - requiredAmount);
-        } 
+        }
 
         Agreement(agreement).initialize{value: requiredAmount}(
             _landlord,
             msg.sender,
             _property,
             _daysCount,
-            _priceForDay,
+            _pricePerDay,
             _deposit
         );
 
@@ -98,6 +99,12 @@ contract Manager {
         }
         return false;
     }
+
+
+    function cancelByLandlord(address _agreement) public {
+        IAgreement(_agreement).cancelByLandlord();
+    }
+
 
     function getBalance(address _address) public view returns (uint256) {
         return _address.balance;
