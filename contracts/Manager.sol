@@ -51,7 +51,7 @@ contract Manager {
         uint256 _daysCount
     ) external payable {
         require(_property != address(0), "Invalid property address");
-        require(isPropertyExist(_property), "Property does not exist");
+        require(isPropertyExists(_property), "Property does not exist");
 
         uint256 _pricePerDay = Property(_property).getPricePerDay();
         uint256 _deposit = Property(_property).getDeposit();
@@ -91,7 +91,14 @@ contract Manager {
 
     function getRentPayment(
         address _agreementAdr
-    ) external payable returns (uint256) {
+    )
+        external
+        payable
+        returns (
+            // AgreementIsExists
+            uint256
+        )
+    {
         return IAgreement(_agreementAdr).withdrawRentPayment(msg.sender);
     }
 
@@ -99,10 +106,13 @@ contract Manager {
         address _agreementAdr,
         uint128 _additionalDays
     ) external payable {
-        IAgreement(_agreementAdr).extendRent(msg.sender, _additionalDays);
+        IAgreement(_agreementAdr).extendRent{value: msg.value}(
+            msg.sender,
+            _additionalDays
+        );
     }
 
-    function isPropertyExist(address _property) private view returns (bool) {
+    function isPropertyExists(address _property) private view returns (bool) {
         for (uint i = 0; i < propertiesList.length; i++) {
             if (propertiesList[i] == _property) {
                 return true;
@@ -111,11 +121,14 @@ contract Manager {
         return false;
     }
 
-    function cancelByTenant(address _agreement) public {
+    function cancelByTenant(address _agreement) public // AgreementIsExists
+    {
         IAgreement(_agreement).cancelByTenant(msg.sender);
     }
 
-    function cancelByLandlord(address _agreement) public {
+    function cancelByLandlord(address _agreement) public 
+        // AgreementIsExists
+{
         IAgreement(_agreement).cancelByLandlord(msg.sender);
     }
 
@@ -126,6 +139,17 @@ contract Manager {
     function getPropertiesListLength() public view returns (uint256) {
         return propertiesList.length;
     }
+
+    modifier PropertyIsExists(address _propertyAddr) {
+        require(isPropertyExists(_propertyAddr), "Property doesn't exist");
+        _;
+    }
+
+    // TODO
+    // modifier AgreementIsExists (address _agreementAddr) {
+    //     require(isAgreementExists(_propertyAddr), "Property doesn't exist" );
+    //     _;
+    // }
 
     event message(string mess);
     event _Error(string _mess);

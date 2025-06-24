@@ -22,7 +22,7 @@ describe("Manager", function () {
         // await property.deployed()
         // await agreement.deployed()
 
-        const [owner, otherAccount] = await ethers.getSigners();
+        const [managerAddr, landlordAddr, tenantAddr] = await ethers.getSigners();
 
         const manager = await Manager.deploy(
 
@@ -32,7 +32,7 @@ describe("Manager", function () {
         )
         // await manager.deployed()
 
-        return { manager, owner, otherAccount, Property, Agreement };
+        return { manager, landlordAddr, tenantAddr, Property, Agreement };
     }
 
     describe("Deployment", function () {
@@ -66,12 +66,13 @@ describe("Manager", function () {
     })
     describe("Creating agreement", function () {
 
+        // validations
         it("Should not add property does not exists", async function () {
             const { manager } = await loadFixture(deployManager)
 
-            const randomPropertyAddress = "0xE451980132E65465d0a498c53f0b5227326Dd73F"
+            const randomPropertyAddr = "0xE451980132E65465d0a498c53f0b5227326Dd73F"
 
-            await expect(manager.createAgreement(randomPropertyAddress, 10)).to.be.revertedWith(
+            await expect(manager.createAgreement(randomPropertyAddr, 10)).to.be.revertedWith(
                 "Property does not exist"
             );
         })
@@ -80,71 +81,148 @@ describe("Manager", function () {
             const { manager } = await loadFixture(deployManager)
 
             await manager.createProperty(10, 15, 'link')
-            const propertyAddress = await manager.propertiesList(0)
+            const propertyAddr = await manager.propertiesList(0)
 
-            await expect(manager.createAgreement(propertyAddress, 10)).to.be.revertedWith(
+            await expect(manager.createAgreement(propertyAddr, 10)).to.be.revertedWith(
                 "Landlord cannot rent own property"
             );
         })
+
+        // add new agreement
         it("Should add new agreement", async function () {
-            const { manager, owner, otherAccount } = await loadFixture(deployManager)
+            const { manager, tenantAddr } = await loadFixture(deployManager)
 
             const pricePerDay = 10
             const deposit = 15
-            await manager.connect(otherAccount).createProperty(pricePerDay, deposit, 'link')
+            await manager.connect(tenantAddr).createProperty(pricePerDay, deposit, 'link')
 
             const daysCount = 10;
             const requiredAmount = pricePerDay * daysCount + deposit;
 
-            const propertyAddress = await manager.propertiesList(0)
+            const propertyAddr = await manager.propertiesList(0)
 
             // requiredAmount equivalent to sending value
-            await manager.createAgreement(propertyAddress, 10, { value: requiredAmount })
-            const addressNewAgreement0 = await manager.propertyAgreements(propertyAddress, 0)
-            expect(addressNewAgreement0).to.not.equal('0x')
+            await manager.createAgreement(propertyAddr, 10, { value: requiredAmount })
+            const addrNewAgreement0 = await manager.propertyAgreements(propertyAddr, 0)
+            expect(addrNewAgreement0).to.not.equal('0x')
 
             // requiredAmount more than sending value 
             await expect(
-                manager.createAgreement(propertyAddress, 10, { value: requiredAmount + 10 })
+                manager.createAgreement(propertyAddr, 10, { value: requiredAmount + 10 })
             ).to.emit(manager, "AgreementCreated")
 
 
-            const addressNewAgreement1 = await manager.propertyAgreements(propertyAddress, 1)
-            expect(addressNewAgreement1).to.not.equal('0x')
+            const addrNewAgreement1 = await manager.propertyAgreements(propertyAddr, 1)
+            expect(addrNewAgreement1).to.not.equal('0x')
 
             // requiredAmount lower than sending value: "Incorrect payment amount"
             await expect(
-                manager.createAgreement(propertyAddress, 10, { value: requiredAmount - 2 })).to.be.reverted
+                manager.createAgreement(propertyAddr, 10, { value: requiredAmount - 2 })).to.be.reverted
         })
 
+        it("Shouldn't work with agreement done existing", async function () {
+
+            const { manager, landlordAddr, tenantAddr, Agreement } = await loadFixture(deployManager)
+
+            const randomAgreementAddr = "0x5392A33F7F677f59e833FEBF4016cDDD88fF9E67"
+            await expect(manager.connect(tenantAddr).extendRent(randomAgreementAddr, 10, { value: 10 ** 6 })).to.be.reverted
+
+
+        })
+
+        // functional 
         it("Should to landlord get payment of rent", async function () {
-            const { manager, owner, otherAccount, Agreement } = await loadFixture(deployManager)
+            const { manager, landlordAddr, tenantAddr, Agreement } = await loadFixture(deployManager)
 
             const pricePerDay = 10
             const deposit = 15
             const daysCount = 10
 
-            await manager.connect(owner).createProperty(pricePerDay, deposit, 'link')
-            const propertyAddress = manager.propertiesList(0)
+            await manager.connect(landlordAddr).createProperty(pricePerDay, deposit, 'link')
+            const propertyAddr = manager.propertiesList(0)
 
-            await manager.connect(otherAccount).createAgreement(propertyAddress, daysCount, { value: pricePerDay * daysCount + deposit })
-            const agreementAddress = await manager.propertyAgreements(propertyAddress, 0)
+            await manager.connect(tenantAddr).createAgreement(propertyAddr, daysCount, { value: pricePerDay * daysCount + deposit })
+            const agreementAddr = await manager.propertyAgreements(propertyAddr, 0)
 
-            const agreement = Agreement.attach(agreementAddress);
+            const agreement = Agreement.attach(agreementAddr);
 
             const agrFeatures = await agreement.agrFeatures();
 
             // reverted with "WithdrawRentPayment"
             await expect(
-                manager.connect(owner).getRentPayment(agreementAddress)
-            ).to.be.reverted  
+                manager.connect(landlordAddr).getRentPayment(agreementAddr)
+            ).to.be.reverted
 
             await time.increaseTo(agrFeatures[1]);
             expect(
-                await manager.connect(owner).getRentPayment(agreementAddress)
+                await manager.connect(landlordAddr).getRentPayment(agreementAddr)
             ).to.emit(agreement, "WithdrawRentPayment")
         })
 
-        
+        it("Should extend rent of additional days", async function () {
+
+            const { manager, landlordAddr, tenantAddr, Agreement } = await loadFixture(deployManager)
+            const pricePerDay = 10
+            const deposit = 15
+            const daysRent = 10
+            const additionalRentDays = 5
+            const secOnOneDay = 24 * 60 * 60
+
+            await manager.connect(landlordAddr).createProperty(pricePerDay, deposit, 'link')
+            const propertyAddr = manager.propertiesList(0)
+
+            await manager.connect(tenantAddr).createAgreement(propertyAddr, daysRent, { value: pricePerDay * daysRent + deposit })
+            const agreementAddr = await manager.propertyAgreements(propertyAddr, 0)
+
+            const agreement = Agreement.attach(agreementAddr)
+            const endRent = Number((await agreement.agrFeatures())[1])
+            const requiredAmount = additionalRentDays * pricePerDay
+            await manager.connect(tenantAddr).extendRent(agreementAddr, additionalRentDays, {
+                value: requiredAmount
+            })
+
+            const newEndRent = Number((await agreement.agrFeatures())[1])
+
+            expect(newEndRent - endRent).to.equal(additionalRentDays * secOnOneDay)
+
+            // retrieved with "Only tenants can this action"
+            await expect(
+                manager.connect(landlordAddr).extendRent(agreementAddr, additionalRentDays)).to.be.reverted;
+
+            await network.provider.send("hardhat_setBalance", [await tenantAddr.getAddress(), '0x51919786020000048'])
+
+            // retrieved with "Incorrect payment amount"
+            await expect(manager.connect(tenantAddr).extendRent(agreementAddr, additionalRentDays, {
+                value: requiredAmount - 2
+            })).to.be.reverted
+        })
+
+        it("Should cancel rent", async function () {
+            const { manager, landlordAddr, tenantAddr, Agreement } = await loadFixture(deployManager)
+            const pricePerDay = 10
+            const deposit = 15
+            const daysRent = 10
+            const additionalRentDays = 5
+            const secOnOneDay = 24 * 60 * 60
+
+            await manager.connect(landlordAddr).createProperty(pricePerDay, deposit, 'link')
+            const propertyAddr = manager.propertiesList(0)
+
+            await manager.connect(tenantAddr).createAgreement(propertyAddr, daysRent, { value: pricePerDay * daysRent + deposit })
+            const agreementAddr = await manager.propertyAgreements(propertyAddr, 0)
+
+            const agreement = Agreement.attach(agreementAddr)
+
+            // reverted with 'Only landlord can this action'
+            await expect(manager.connect(tenantAddr).cancelByLandlord(agreement)).to.be.reverted
+
+
+            await manager.connect(landlordAddr).cancelByLandlord(agreement)
+            // reverted with 'The agreement is not active'
+            await expect(manager.connect(tenantAddr).extendRent(await agreement.getAddress(), additionalRentDays, {
+                value: additionalRentDays * pricePerDay * secOnOneDay
+            })).to.be.reverted
+
+        })
     })
 })

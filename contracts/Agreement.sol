@@ -37,8 +37,8 @@ contract Agreement is IAgreement {
 
         if (msg.value > requiredAmount) {
             uint256 change = msg.value - requiredAmount;
-            payable(msg.sender).transfer(change);
-            emit ChangeReturned(msg.sender, change);
+            payable(_tenant).transfer(change);
+            emit ChangeReturned(_tenant, change);
         }
 
         initialized = true;
@@ -85,8 +85,8 @@ contract Agreement is IAgreement {
 
         if (msg.value > requiredAmount) {
             uint256 change = msg.value - requiredAmount;
-            payable(msg.sender).transfer(change);
-            emit ChangeReturned(msg.sender, change);
+            payable(_sender).transfer(change);
+            emit ChangeReturned(_sender, change);
         }
 
         agrFeatures.endRent += _additionalDays * 1 days;
@@ -131,7 +131,7 @@ contract Agreement is IAgreement {
     ) external payable OnlyLandlord(_sender) timeWasUp returns (uint256) {
         require(
             agrFeatures.status != StatusRent.Active,
-            "The agreement is active."
+            "The agreement is active"
         );
 
         uint256 rentPayment = ((block.timestamp - agrFeatures.startRent) /
@@ -152,7 +152,7 @@ contract Agreement is IAgreement {
     }
 
     function returnDeposit(address _sender) external {
-        // require(!approvalLandlord && !approvalTenant , "This action requires approval.");
+        // require(!approvalLandlord && !approvalTenant , "This action requires approval");
     }
 
     function getRentStatus() public view returns (StatusRent) {
@@ -161,14 +161,6 @@ contract Agreement is IAgreement {
 
     function getBalance() external view returns (uint256) {
         return address(this).balance;
-    }
-
-    function getPropertyFeatures()
-        external
-        view
-        returns (PropertyFeatures memory)
-    {
-        return propFeatures;
     }
 
     // modifier onlyParties() {
@@ -187,18 +179,18 @@ contract Agreement is IAgreement {
     modifier isActive() {
         require(
             agrFeatures.status == StatusRent.Active,
-            "The agreement is not active."
+            "The agreement is not active"
         );
         _;
     }
 
     modifier OnlyTenant(address _sender) {
-        require(_sender == tenant.addr, "Only tenants can this action.");
+        require(_sender == tenant.addr, "Only tenants can this action");
         _;
     }
 
     modifier OnlyLandlord(address _sender) {
-        require(_sender == landlord.addr, "Only landlord can this action.");
+        require(_sender == landlord.addr, "Only landlord can this action");
         _;
     }
 
