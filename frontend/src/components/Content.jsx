@@ -10,24 +10,34 @@ import {
   CardActions,
   Box
 } from "@mui/material";
-import { ContractAgreement, managerContract, users } from '../features/entities';
-import { useSelector } from 'react-redux';
-import { selectUser } from '../userSlice';
+import { ContractAgreement, managerContract } from '../features/entities';
+import { useDispatch, useSelector } from 'react-redux';
 import ControlPointIcon from '@mui/icons-material/ControlPoint';
 import { createAgreement } from '../features/contract';
+import {
+  selectCurrUser, selectUsersAll, toUpdate,
+
+  toAddToBalance,
+  toDecreaseFromBalance
+} from '../usersSlice';
 
 const Content = () => {
 
-  const user = useSelector(selectUser)
-  // const [currButton, setCurrButton] = useState(buttons.startRent)
+  const user = useSelector(selectCurrUser)
+  const users = useSelector(selectUsersAll)
+  const dispatch = useDispatch()
 
+
+
+  // const [currButton, setCurrButton] = useState(buttons.startRent)
+  let paymentRent = null
 
   const buttons = {
 
     startRent: (property) => (<Button
       variant="contained"
       color="primary"
-      onClick={() => handleRent(property.id)}
+      onClick={() => handleRent(property)}
     >
       Начать аренду
     </Button>),
@@ -36,7 +46,7 @@ const Content = () => {
       <Button
         variant="outlined"
         color="error"
-        onClick={() => handleCancel(property.id)}
+        onClick={() => handleCancel(property)}
       >
         Отменить аренду
       </Button>
@@ -45,7 +55,7 @@ const Content = () => {
       <Button
         variant="outlined"
         color="success"
-        onClick={() => handleActivate(property.id)}
+        onClick={() => handleGetPayment(property)}
       >
 
         Получить деньги
@@ -56,26 +66,33 @@ const Content = () => {
   const [properties, setProperties] = React.useState([
     {
       id: 1,
-      status: 'Available', // 'Available', 'Rented', 'Cancelled'
+      status: 'Available',
       metadata: 'ул. Примерная, 123',
-      pricePerDay: 5,
-      landlord: users[0].name,
+      pricePerDay: 500,
+      landlord: 'User 1',
       tenant: null,
-      startRent: null,
-      endEnd: null
+      rentDays: 15,
+      deposit: 500,
+      isGetedDeposit: false,
+      isGetedrentPayment: false
     },
     {
       id: 2,
-      status: 'Rented',
+      status: 'Available',
       metadata: 'ул. Тестовая, 456',
-      pricePerDay: 7,
-      landlord: users[1].name,
-      tenant: null, 
-      startRent: null,
-      endEnd: null
+      pricePerDay: 700,
+      landlord: "User 2",
+      tenant: null,
+      rentDays: 5,
+      deposit: 1000,
+      isGetedDeposit: false,
+      isGetedrentPayment: false
     }
   ]);
 
+  if (properties.length === 0) {
+    return <div>Загрузка...</div>;
+  }
 
   function changeButton(property) {
 
@@ -92,29 +109,75 @@ const Content = () => {
 
 
 
-  const handleRent = (id) => {
+  const handleRent = (proccedproperty) => {
 
-    createAgreement(new ContractAgreement(
-      
+    console.log(user.name)
+    if (proccedproperty.landlord === user.name) {
+      return
+    }
+    const oldBalance = user.balance
+    paymentRent = proccedproperty.deposit + proccedproperty.rentDays * proccedproperty.pricePerDay
+
+
+
+    dispatch(toDecreaseFromBalance({ name: user.name, count: paymentRent }))
+
+    dispatch(toUpdate(
+      users.map(_user => _user.name === user.name ? { ..._user, balance: oldBalance - paymentRent } : _user)
     ))
-    
+
     setProperties(properties.map(property =>
-      property.id === id && property.landlord !== user.name ? { ...property, status: 'Rented', tenant: user.name } : property
+      property.id === proccedproperty.id && property.landlord !== user.name ? { ...property, status: 'Rented', tenant: user.name } : property
     ));
+
 
 
   };
-
-  const handleCancel = (id) => {
+  const handleCancel = (proccedproperty) => {
     setProperties(properties.map(property =>
-      property.id === id ? { ...property, status: 'Cancelled', tenant: null } : property
+      property.id === proccedproperty.id ? { ...property, status: 'Cancelled' } : property
     ));
   };
 
-  const handleActivate = (id) => {
-    setProperties(properties.map(property =>
-      property.id === id ? { ...property, status: 'Available' } : property
-    ));
+  const handleGetPayment = (proccedproperty) => {
+
+    if (
+      proccedproperty.landlord === user.name && !proccedproperty.isGetedrentPayment
+    ) {
+
+      dispatch(toAddToBalance({ name: user.name, count:  proccedproperty.rentDays * proccedproperty.pricePerDay }))
+
+      
+      dispatch(toUpdate(
+        users.map(_user => _user.name === user.name ? { ..._user, balance:  user.balance + ( proccedproperty.rentDays * proccedproperty.pricePerDay) } : _user)
+      ))
+
+      proccedproperty.isGetedrentPayment = true
+
+      console.log(proccedproperty.isGetedrentPayment)
+
+    }
+    if (
+      proccedproperty.tenant === user.name && !proccedproperty.isGetedDeposit
+    ) {
+      dispatch(toAddToBalance({ name: user.name, count: proccedproperty.deposit }))
+
+
+      dispatch(toUpdate(
+        users.map(_user => _user.name === user.name ? { ..._user, balance: user.balance + proccedproperty.deposit } : _user)
+      ))
+
+      proccedproperty.isGetedDeposit = true
+      console.log(2)
+
+    }
+    if (
+      proccedproperty.isGetedDeposit && proccedproperty.isGetedrentPayment
+    ) {
+      setProperties(properties.map(property =>
+        property.id === proccedproperty.id ? { ...property, status: 'Available', tenant: null } : property
+      ));
+    }
   };
 
   return (
@@ -142,6 +205,13 @@ const Content = () => {
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Владелец: {property.landlord}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary">
+                    Срок аренды: {property.rentDays} дней
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Депозит: {property.deposit} ETH
                   </Typography>
                   {property.tenant ?
                     <Typography variant="body2" color="text.secondary">

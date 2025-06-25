@@ -1,15 +1,15 @@
-import { initManagerContract, loadUsers } from "./utils"
+import { initManagerContract } from "./utils"
 
 
-export class ContractAgreement {
-    constructor(
-        _property,
-        _daysCount
-    ) {
-        this.property = _property,
-        this.daysCount = _daysCount
-}
-}
+// export class ContractAgreement {
+//     constructor(
+//         _property,
+//         _daysCount
+//     ) {
+//         this.property = _property,
+//         this.daysCount = _daysCount
+// }
+// }
 
 export class ContractProperty {
     constructor(
@@ -23,6 +23,6 @@ export class ContractProperty {
     }
 }
 
-export const users = await loadUsers(3)
+
 
 export const managerContract = initManagerContract()

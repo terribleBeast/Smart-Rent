@@ -1,24 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppBar, Toolbar, IconButton, Menu, MenuItem, Typography } from '@mui/material'
 import AccountCircle from '@mui/icons-material/AccountCircle';
-import { useDispatch } from 'react-redux'
-import { toLogIn } from '../userSlice';
-import { users } from '../features/utils';
+import { useDispatch, useSelector } from 'react-redux'
+import { selectCurrUser, selectUsersAll, toUpdate, toLog } from '../usersSlice';
 
 const Header = () => {
     const [anchorEl, setAnchorEl] = React.useState(null);
     const isMenuOpen = Boolean(anchorEl);
-    const [selectedUser, setSelectedUser] = useState(users[0]);
+    const user = useSelector(selectCurrUser)
+    const users = useSelector(selectUsersAll)
+    const [selectedUser, setSelectedUser] = useState(user);
     const dispatch = useDispatch()
-    dispatch(toLogIn({
-        name: selectedUser.name,
-        address: selectedUser.address,
-        balance: selectedUser.balance
-    }))
+
+
+    console.log(users)
+
+    // useEffect(() =>{
+    //     const newUsers = users.map(_user => _user.name === selectedUser.name ? { ..._user, balance: selectedUser.balance } : _user )
+    //     dispatch(toUpdate(newUsers))}, []        
+    // )
+
+    useEffect(() => {
+        if (!selectedUser) return;
+        dispatch(toLog({user: selectedUser}));
+
+        
+    }, [selectedUser, dispatch, user]);
 
     const handleMenuClose = () => {
         setAnchorEl(null);
-        // handleMobileMenuClose();
     };
 
     const handleProfileMenuOpen = (event) => {
@@ -26,14 +36,12 @@ const Header = () => {
     };
 
     const handleAddressClick = (user) => {
-        setSelectedUser(user)
-        dispatch(toLogIn({
-            address: selectedUser.address,
-            balance: selectedUser.balance
-        }))
+        setSelectedUser(user);
+        if (user) {
+            dispatch(toLog({user: selectCurrUser}));
+        }
     }
 
-    console.log(users[0].address)
     const renderMenu = (
         <Menu
             anchorEl={anchorEl}
@@ -50,11 +58,11 @@ const Header = () => {
             onClose={handleMenuClose}
         >
 
-            {users.map((user, idx) => (
+            {users?.map((user, idx) => (
                 <MenuItem onClick={() => {
                     handleAddressClick(user);
                     handleMenuClose();
-                }} id={idx} >
+                }} key={idx}>
                     {user.name}
                 </MenuItem>
             ))}
@@ -73,10 +81,10 @@ const Header = () => {
                     <Typography sx={{
                         mr: 5
                     }}>
-                        Name: {selectedUser.name}
+                        Name: {user ? user.name : ""}
                     </Typography>
                     <Typography>
-                        Balance: {selectedUser.balance}
+                        Balance: {user ? user.balance : ""}
                     </Typography>
                     <IconButton
                         size="large"
