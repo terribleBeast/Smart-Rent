@@ -2,7 +2,7 @@
 // Learn more about it at https://hardhat.org/ignition
 
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
-
+require('hardhat-abi-exporter')
 
 module.exports = buildModule("ManagerModule", (m) => {
     const agreement = m.contract("Agreement")
